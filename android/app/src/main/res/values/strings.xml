@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">ROMS Panel</string>
-    <string name="title_activity_main">ROMS Panel</string>
-    <string name="package_name">com.roms.panel</string>
-    <string name="custom_url_scheme">com.roms.panel</string>
-</resources>
