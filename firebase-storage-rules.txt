@@ -1,0 +1,23 @@
+// Firebase Storage Rules for Restaurant Management System
+// UPDATED: No authentication required (works with your existing JWT system)
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow public read access for all files (needed for menu images)
+    match /{allPaths=**} {
+      allow read: if true;
+
+      // Allow write access for menu images (no auth required for your setup)
+      allow write: if request.resource.contentType.matches('image/.*') &&
+                   request.resource.size < 10 * 1024 * 1024; // 10MB limit
+
+      // Allow create for images
+      allow create: if request.resource.contentType.matches('image/.*') &&
+                   request.resource.size < 10 * 1024 * 1024;
+
+      // Allow delete (you can restrict this if needed)
+      allow delete: if true;
+    }
+  }
+}

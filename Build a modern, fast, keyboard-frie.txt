@@ -1,0 +1,88 @@
+Build a modern, fast, keyboard-friendly Restaurant POS (Point of Sale) system.
+
+The system should allow staff to:
+- Select tables
+- Browse menu by categories
+- Add/remove items quickly
+- Manage live orders
+- Generate bills and accept payments
+
+The POS should be optimized for:
+- Touch screens
+- Keyboard shortcuts
+- Fast billing (under 10 seconds per order)
+Top Section:
+- Table Grid (10 tables visible)
+
+Middle Section:
+- Category Tabs (Veg, Non-Veg, Starters, Chinese, Drinks)
+
+Main Section:
+- Left → Menu Items Grid
+- Right → Order Panel (Cart)
+
+Sticky Right Panel:
+- Always visible order summary
+- Display 10 tables (T1–T10)
+- Each table shows:
+  - Status (Available / Occupied / Reserved)
+  - Current bill amount
+- Color codes:
+  - Green → Available
+  - Red → Occupied
+  - Yellow → Reserved
+- Clicking a table loads its active order
+- Categories:
+  Veg, Non-Veg, Starters, Chinese, Drinks
+
+- Each item card contains:
+  - Name
+  - Price
+  - Add button (+)
+
+- Features:
+  - Search bar (instant search)
+  - Favorites section
+  - Fast loading (no lag)
+- Shows selected items
+- Each row:
+  - Item name
+  - Quantity (+ / -)
+  - Price
+  - Remove button
+
+- Bottom section:
+  - Subtotal
+  - GST (auto calculate)
+  - Discount (manual input)
+  - Grand Total
+
+- Actions:
+  - Save Order
+  - Print Bill
+  - Proceed to Payment
+Global:
+F1 → New Order
+F2 → Search Item
+F3 → Discount
+F4 → Payment
+F5 → Print
+ESC → Cancel
+
+Categories:
+1 → Veg
+2 → Non-Veg
+3 → Starters
+4 → Chinese
+5 → Drinks
+
+Tables:
+Alt + 1–10 → Select table
+
+Order Actions:
+Enter → Add item
++ → Increase qty
+- → Decrease qty
+Delete → Remove item
+Ctrl + S → Save
+Ctrl + P → Print

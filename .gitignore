@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Database files (local data — don't push)
+*.db
+*.db-shm
+*.db-wal
+roms.db
+
+# Logs
+*.log
+order-error.log
+bills_log.xlsx
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (user-generated content)
+uploads/
+
+# Vite cache
+.vite/
+
+# TypeScript cache
+*.tsbuildinfo

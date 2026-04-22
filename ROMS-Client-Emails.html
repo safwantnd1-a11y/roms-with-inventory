@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ROMS – Client Emails | Safwan Raza</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --orange: #f97316;
+    --green: #16a34a;
+    --blue: #2563eb;
+    --dark: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+    padding: 40px 20px;
+  }
+
+  /* ── Cover Page ── */
+  .cover {
+    max-width: 800px;
+    margin: 0 auto 60px;
+    text-align: center;
+    padding: 60px 40px;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border-radius: 24px;
+    color: white;
+    page-break-after: always;
+  }
+  .cover .logo { font-size: 56px; margin-bottom: 16px; }
+  .cover h1 { font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 800; margin-bottom: 8px; }
+  .cover .sub { color: rgba(255,255,255,.6); font-size: 16px; margin-bottom: 32px; }
+  .cover .pill {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 6px;
+  }
+  .pill-orange { background: rgba(249,115,22,.2); color: #fb923c; border: 1px solid rgba(249,115,22,.4); }
+  .pill-green  { background: rgba(34,197,94,.2);  color: #4ade80; border: 1px solid rgba(34,197,94,.4); }
+  .pill-blue   { background: rgba(59,130,246,.2); color: #93c5fd; border: 1px solid rgba(59,130,246,.4); }
+  .cover .author { margin-top: 40px; color: rgba(255,255,255,.4); font-size: 12px; }
+  .cover .author strong { color: rgba(255,255,255,.8); font-size: 15px; display: block; margin-bottom: 4px; }
+
+  /* ── Email Wrapper ── */
+  .email-wrapper {
+    max-width: 800px;
+    margin: 0 auto 60px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 32px rgba(0,0,0,.08);
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+
+  /* Email Header */
+  .email-header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .email-header .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 30px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .badge-hindi  { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .badge-english{ background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .email-header h2 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 800; color: var(--dark); margin-bottom: 4px; }
+  .email-header .subject-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .email-header .subject { font-size: 14px; font-weight: 600; color: var(--dark); }
+
+  /* Email Body */
+  .email-body { padding: 32px 40px 40px; }
+  .email-body p { font-size: 14px; line-height: 1.8; color: #334155; margin-bottom: 16px; }
+
+  /* Section headings */
+  .section-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--dark);
+    margin: 28px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+  th { text-align: left; padding: 10px 14px; background: #f1f5f9; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--border); }
+  td { padding: 10px 14px; border: 1px solid var(--border); color: #334155; vertical-align: top; line-height: 1.5; }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  /* Bullet list */
+  .bullet-list { list-style: none; margin: 12px 0 20px; padding: 0; }
+  .bullet-list li { font-size: 14px; padding: 6px 0; color: #334155; display: flex; gap: 10px; align-items: flex-start; border-bottom: 1px solid #f1f5f9; }
+  .bullet-list li:last-child { border: none; }
+
+  /* Highlight box */
+  .highlight-box {
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin: 16px 0;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .highlight-orange { background: #fff7ed; border-left: 4px solid var(--orange); color: #7c2d12; }
+  .highlight-green  { background: #f0fdf4; border-left: 4px solid#22c55e; color: #14532d; }
+  .highlight-blue   { background: #eff6ff; border-left: 4px solid var(--blue); color: #1e3a8a; }
+
+  /* Contact footer */
+  .contact-footer {
+    margin-top: 32px;
+    padding: 24px;
+    background: #f8fafc;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+  .contact-footer .name { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 800; color: var(--dark); margin-bottom: 4px; }
+  .contact-footer .title { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .contact-item { font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px; }
+  .contact-item .icon { font-size: 16px; }
+
+  /* Divider between emails */
+  .page-break { page-break-before: always; }
+
+  /* Signature quote */
+  .quote {
+    text-align: center;
+    margin-top: 24px;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .quote .live-dot {
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #ef4444;
+    margin-right: 4px;
+    animation: pulse 1.5s infinite;
+  }
+
+  /* Print styles */
+  @media print {
+    body { background: white; padding: 0; }
+    .cover, .email-wrapper { box-shadow: none; border: 1px solid #e2e8f0; }
+    .page-break { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ COVER PAGE ══════════════════════════ -->
+<div class="cover">
+  <div class="logo">🍽️</div>
+  <h1>ROMS Client Emails</h1>
+  <p class="sub">Restaurant Order Management System — Client Outreach Templates</p>
+  <div>
+    <span class="pill pill-orange">📧 Hindi Email</span>
+    <span class="pill pill-english pill-blue">📧 English Email</span>
+    <span class="pill pill-green">🔴 Live Dashboard</span>
+  </div>
+  <div class="author">
+    <strong>Safwan Raza</strong>
+    Restaurant Technology Developer &nbsp;|&nbsp; +91 73982 90844 &nbsp;|&nbsp; safwan.tnd1@gmail.com
+  </div>
+</div>
+
+
+<!-- ══════════════════════ EMAIL 1: HINDI ══════════════════════ -->
+<div class="email-wrapper">
+  <div class="email-header">
+    <div class="badge badge-hindi">🇮🇳 Hindi / Urdu Email</div>
+    <h2>Indian Restaurant Owners ke liye</h2>
+    <p class="subject-label">Subject Line:</p>
+    <p class="subject">🍽️ Apne Restaurant ki Speed &amp; Revenue Badhayen — Free Live Demo</p>
+  </div>
+
+  <div class="email-body">
+    <p><strong>Dear [Restaurant Owner's Name],</strong></p>
+    <p>Mera naam <strong>Safwan Raza</strong> hai aur main ek Restaurant Management System (ROMS) develop karta hoon jo khaas taur par <strong>Indian restaurants</strong> ke liye bana gaya hai.</p>
+    <p>Aapke restaurant mein agar yeh problems hain:</p>
+
+    <ul class="bullet-list">
+      <li><span>❌</span> Staff kagaz pe order likhte hain — errors hote hain</li>
+      <li><span>❌</span> Kitchen ko order milne mein time lagta hai</li>
+      <li><span>❌</span> Bill mein galtiyan hoti hain ya GST record nahi hota</li>
+      <li><span>❌</span> Din ke baad revenue ka pata nahi chalta</li>
+      <li><span>❌</span> Aapko pata hi nahi chalta ki abhi kitne orders chal rahe hain</li>
+    </ul>
+
+    <div class="highlight-orange">
+      <strong>Toh ROMS exactly yeh problems solve karta hai.</strong>
+    </div>
+
+    <!-- Live Dashboard -->
+    <div class="section-title">🔴 LIVE Restaurant Dashboard — Sab Kuch Real-Time!</div>
+    <div class="highlight-blue">
+      <strong>Ghar baithe, phone pe, kahi se bhi —</strong> aapka poora restaurant <strong>live dekh sakte ho.</strong>
+    </div>
+
+    <table>
+      <tr><th>Live Status</th><th>Kya Dekhoge?</th></tr>
+      <tr><td>🟢 Active Orders</td><td>Abhi kitne tables pe order chal raha hai</td></tr>
+      <tr><td>⏳ Order Status</td><td>New → Preparing → Ready — live tracking</td></tr>
+      <tr><td>💰 Live Revenue</td><td>Aaj kitna revenue aaya — abhi tak</td></tr>
+      <tr><td>👨‍🍳 Kitchen Status</td><td>Kaun sa order ban raha hai, kaun ready hai</td></tr>
+      <tr><td>📊 Today's Orders</td><td>Total orders, average bill, peak hours</td></tr>
+      <tr><td>👥 Staff Activity</td><td>Kaun sa staff active hai</td></tr>
+    </table>
+    <p style="font-size:12px;color:#64748b;">Sabkuch automatically update hota hai — bina page refresh ke! (Powered by real-time Socket.IO technology)</p>
+
+    <!-- Features -->
+    <div class="section-title">🚀 ROMS System Kya Karta Hai?</div>
+    <table>
+      <tr><th>Feature</th><th>Faida</th></tr>
+      <tr><td><strong>Live Admin Dashboard</strong></td><td>Owner ko real-time mein sab pata chalta hai</td></tr>
+      <tr><td><strong>Staff App (Mobile)</strong></td><td>Table pe order 10 seconds mein place</td></tr>
+      <tr><td><strong>Kitchen Display</strong></td><td>Chef ko live order milta hai — koi slip nahi</td></tr>
+      <tr><td><strong>Auto Bill + Print</strong></td><td>Error-free billing, thermal printer support</td></tr>
+      <tr><td><strong>GST Excel Log</strong></td><td>Har bill automatically record hota hai</td></tr>
+      <tr><td><strong>Local Hosting</strong></td><td>Koi monthly fees nahi — ek baar lagao, hamesha chalao</td></tr>
+    </table>
+
+    <!-- Benefits -->
+    <div class="section-title">💡 Aapko Milega</div>
+    <ul class="bullet-list">
+      <li><span>✅</span> Real-time visibility into every corner of your restaurant</li>
+      <li><span>✅</span> Zero paper waste — sab digital</li>
+      <li><span>✅</span> Faster service — customers zyada khush</li>
+      <li><span>✅</span> Tax-ready records — GST compliance easy</li>
+      <li><span>✅</span> Any device — phone, tablet, laptop sab pe chalega</li>
+      <li><span>✅</span> Day 1 setup — 1 din mein install aur training</li>
+    </ul>
+
+    <!-- ROI -->
+    <div class="highlight-green">
+      📊 <strong>Real Numbers:</strong> Restaurants ₹500+ roz orders ki galtiyon mein waste karte hain. ROMS se yeh directly aapki <strong>net profit</strong> mein add hoga.
+    </div>
+
+    <!-- CTA -->
+    <div class="section-title">🎯 Aage Kya Karna Hai?</div>
+    <p>Main aapko ek <strong>FREE live demo</strong> de sakta hoon — apne restaurant mein ya phone pe. Aap khud dekhenge:</p>
+    <ul class="bullet-list">
+      <li><span>📱</span> Staff ne order diya</li>
+      <li><span>👨‍🍳</span> Kitchen ne ek second mein dekha</li>
+      <li><span>💻</span> Aapke phone pe live update aa gaya</li>
+      <li><span>🧾</span> Bill automatically print hua — zero errors</li>
+    </ul>
+
+    <!-- Live Demo Link -->
+    <div style="margin-top:20px;padding:16px 20px;background:#f8fafc;border:1px solid #93c5fd;border-radius:12px;">
+      <p style="margin-bottom:8px;font-weight:700;color:#1e40af;">🌐 Live Self-Demo Try Karein:</p>
+      <a href="https://romsah.dpdns.org" target="_blank" style="display:inline-block;padding:8px 16px;background:#3b82f6;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:10px;">Link: romsah.dpdns.org</a>
+      <p style="font-size:13px;color:#334155;"><strong>Admin Login</strong> &mdash; ID: <span style="color:#2563eb;font-weight:bold;">admin</span> | Pass: <span style="color:#2563eb;font-weight:bold;">admin</span></p>
+      <p style="font-size:11px;color:#64748b;margin-top:6px;">Note: Server locally hosted hai aur sirf active working hours mein on rehta hai (Not 24x7).</p>
+    </div>
+
+    <!-- Contact -->
+    <div class="contact-footer">
+      <div class="name">Safwan Raza</div>
+      <div class="title">Restaurant Technology Developer</div>
+      <div class="contact-grid">
+        <div class="contact-item"><span class="icon">📱</span> +91 73982 90844</div>
+        <div class="contact-item"><span class="icon">📧</span> safwan.tnd1@gmail.com</div>
+        <div class="contact-item"><span class="icon">💬</span> WhatsApp: +91 73982 90844</div>
+        <div class="contact-item"><span class="icon">📍</span> Tanda, Lucknow, India — 224190</div>
+        <div class="contact-item"><span class="icon">🕐</span> Mon–Sat: 5:30 PM – 10:00 PM</div>
+        <div class="contact-item"><span class="icon">🕗</span> Sunday: 8:00 AM – 10:00 PM</div>
+      </div>
+    </div>
+
+    <div class="quote">
+      <span class="live-dot"></span>
+      <em>"Aapka restaurant chal raha hoga — aap ghar pe baithe sab dekh rahe honge."</em>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════ EMAIL 2: ENGLISH ══════════════════════ -->
+<div class="email-wrapper page-break">
+  <div class="email-header">
+    <div class="badge badge-english">🌍 English Email — International / Foreign Clients</div>
+    <h2>For International Restaurant Owners</h2>
+    <p class="subject-label">Subject Line:</p>
+    <p class="subject">🍽️ Smart Restaurant Management System — Real-Time Dashboard &amp; Zero Monthly Fees</p>
+  </div>
+
+  <div class="email-body">
+    <p><strong>Dear [Restaurant Owner's Name],</strong></p>
+    <p>My name is <strong>Safwan Raza</strong>, and I'm a software developer specializing in <strong>Restaurant Management Systems</strong> designed to streamline restaurant operations and maximize profitability.</p>
+    <p>I'd like to introduce you to <strong>ROMS</strong> — a complete, real-time restaurant operations platform built for modern restaurants.</p>
+
+    <!-- Problems -->
+    <div class="section-title">❌ The Problem with Manual Operations</div>
+    <p>Are any of these familiar to you?</p>
+    <ul class="bullet-list">
+      <li><span>❌</span> Orders written on paper — errors, delays, miscommunication</li>
+      <li><span>❌</span> Kitchen staff missing orders or working on wrong priorities</li>
+      <li><span>❌</span> Billing mistakes causing revenue loss</li>
+      <li><span>❌</span> No digital tax records for compliance</li>
+      <li><span>❌</span> You have no visibility into what's happening at your restaurant right now</li>
+    </ul>
+
+    <div class="highlight-orange">
+      <strong>ROMS solves every single one of these — from day one.</strong>
+    </div>
+
+    <!-- Live Dashboard -->
+    <div class="section-title">🔴 LIVE Restaurant Dashboard</div>
+    <div class="highlight-blue">
+      <strong>Monitor your entire restaurant in real-time</strong> — from your phone, tablet, or laptop — from anywhere in the world.
+    </div>
+
+    <table>
+      <tr><th>Live Feature</th><th>What You See</th></tr>
+      <tr><td>🟢 Active Orders</td><td>Every live table order, updated instantly</td></tr>
+      <tr><td>⏳ Order Progress</td><td>New → Preparing → Ready — tracked live</td></tr>
+      <tr><td>💰 Live Revenue</td><td>Today's sales updated in real-time</td></tr>
+      <tr><td>👨‍🍳 Kitchen Status</td><td>Which dishes are being prepared right now</td></tr>
+      <tr><td>📊 Daily Summary</td><td>Total orders, average bill, peak hours</td></tr>
+      <tr><td>👥 Staff Activity</td><td>Which staff member is active and serving</td></tr>
+    </table>
+    <p style="font-size:12px;color:#64748b;">No page refresh needed. Everything updates automatically using real-time Socket.IO technology.</p>
+
+    <!-- Features -->
+    <div class="section-title">🚀 Complete Feature Set</div>
+    <table>
+      <tr><th>Feature</th><th>Benefit</th></tr>
+      <tr><td><strong>Live Admin Dashboard</strong></td><td>Full control — monitor remotely from anywhere</td></tr>
+      <tr><td><strong>Staff Mobile App</strong></td><td>Place table orders in under 10 seconds</td></tr>
+      <tr><td><strong>Kitchen Display System</strong></td><td>Instant order delivery to kitchen — no paper slips</td></tr>
+      <tr><td><strong>Automated Billing &amp; Print</strong></td><td>Error-free bills with thermal printer support</td></tr>
+      <tr><td><strong>Excel Tax Logs</strong></td><td>Every bill automatically recorded for compliance</td></tr>
+      <tr><td><strong>QR Menu (Self-Ordering)</strong></td><td>Customers order from their own phone via QR code</td></tr>
+      <tr><td><strong>Local Hosting</strong></td><td>No monthly subscription fees — one-time setup</td></tr>
+    </table>
+
+    <!-- Benefits -->
+    <div class="section-title">💡 What You Get</div>
+    <ul class="bullet-list">
+      <li><span>✅</span> Real-time visibility into every corner of your restaurant</li>
+      <li><span>✅</span> Eliminate order errors and communication delays</li>
+      <li><span>✅</span> Automated billing and tax-ready records</li>
+      <li><span>✅</span> Works on any device — phone, tablet, desktop</li>
+      <li><span>✅</span> Setup and staff training completed on Day 1</li>
+      <li><span>✅</span> No cloud dependency — no recurring monthly costs</li>
+    </ul>
+
+    <!-- ROI -->
+    <div class="highlight-green">
+      📊 <strong>The Real Impact:</strong> Restaurants using manual systems lose an average of <strong>₹500+ per day (approx. $6–7 USD)</strong> due to order errors and billing mistakes. With ROMS, that becomes <strong>direct profit — every single day.</strong>
+    </div>
+
+    <!-- CTA -->
+    <div class="section-title">🎯 See It Live — Free Demo</div>
+    <p>I'd love to show you a <strong>live demonstration</strong> of the system — either remotely via video call or in person. You'll see exactly how:</p>
+    <ul class="bullet-list">
+      <li><span>📱</span> A staff member places a table order in seconds</li>
+      <li><span>👨‍🍳</span> The kitchen sees it instantly on their display</li>
+      <li><span>💻</span> Your live dashboard updates in real-time</li>
+      <li><span>🧾</span> The bill prints automatically — zero errors</li>
+    </ul>
+    <p>Just reply to this email or send a WhatsApp message — <strong>I'll set up a demo at your convenience.</strong></p>
+
+    <!-- Live Demo Link -->
+    <div style="margin-top:20px;margin-bottom:20px;padding:16px 20px;background:#f8fafc;border:1px solid #93c5fd;border-radius:12px;">
+      <p style="margin-bottom:8px;font-weight:700;color:#1e40af;">🌐 Test the Live Self-Demo Now:</p>
+      <a href="https://romsah.dpdns.org" target="_blank" style="display:inline-block;padding:8px 16px;background:#3b82f6;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:10px;">Link: romsah.dpdns.org</a>
+      <p style="font-size:13px;color:#334155;"><strong>Admin Login</strong> &mdash; ID: <span style="color:#2563eb;font-weight:bold;">admin</span> | Pass: <span style="color:#2563eb;font-weight:bold;">admin</span></p>
+      <p style="font-size:11px;color:#64748b;margin-top:6px;">Note: Server is locally hosted and bound to development hours (Not 24x7).</p>
+    </div>
+
+    <!-- Contact -->
+    <div class="contact-footer">
+      <div class="name">Safwan Raza</div>
+      <div class="title">Restaurant Technology Developer</div>
+      <div class="contact-grid">
+        <div class="contact-item"><span class="icon">📱</span> +91 73982 90844</div>
+        <div class="contact-item"><span class="icon">📧</span> safwan.tnd1@gmail.com</div>
+        <div class="contact-item"><span class="icon">💬</span> WhatsApp: +91 73982 90844</div>
+        <div class="contact-item"><span class="icon">📍</span> Tanda, Lucknow, India — 224190</div>
+        <div class="contact-item"><span class="icon">🕐</span> Mon–Sat: 5:30 PM – 10:00 PM IST</div>
+        <div class="contact-item"><span class="icon">🕗</span> Sunday: 8:00 AM – 10:00 PM IST</div>
+      </div>
+    </div>
+
+    <div class="quote">
+      <span class="live-dot"></span>
+      <em>"Your restaurant keeps running. You keep watching — live."</em>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
