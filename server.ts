@@ -160,6 +160,11 @@ db.exec(`
 // NOTE: ordersColumns migration runs AFTER the FK guard below to ensure columns
 // are added to the final rebuilt table, not the stale one.
 
+// Add missing columns to settings
+const settingsColumns = db.prepare('PRAGMA table_info(settings)').all().map((col: any) => col.name);
+if (!settingsColumns.includes('email')) db.prepare('ALTER TABLE settings ADD COLUMN email TEXT').run();
+if (!settingsColumns.includes('website')) db.prepare('ALTER TABLE settings ADD COLUMN website TEXT').run();
+
 // Add merged_into to tables if not present (for visual merge tracking)
 const tablesColumns = db.prepare('PRAGMA table_info(tables)').all().map((col: any) => col.name);
 if (!tablesColumns.includes('merged_into')) db.prepare('ALTER TABLE tables ADD COLUMN merged_into INTEGER DEFAULT NULL').run();
@@ -1052,7 +1057,7 @@ async function startServer() {
       if (req.query.history === 'true') {
         query += ` WHERE o.status IN ('served', 'billing', 'paid', 'cancelled')`;
       } else {
-        query += ` WHERE o.status NOT IN ('pending', 'served', 'billing', 'paid', 'cancelled')`;
+        query += ` WHERE o.status NOT IN ('paid', 'cancelled')`;
       }
     }
 
@@ -1235,6 +1240,40 @@ async function startServer() {
     }
   });
 
+  // Edit/Remove order item (quantity)
+  app.patch('/api/orders/items/:id', authenticate, (req: any, res: any) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      const { quantity } = req.body;
+      const oi = db.prepare('SELECT oi.*, m.price, m.half_price FROM order_items oi JOIN menu m ON oi.menu_id = m.id WHERE oi.id = ?').get(itemId) as any;
+      if (!oi) return res.status(404).json({ error: 'Item not found' });
+      
+      const price = oi.portion === 'half' ? (oi.half_price || oi.price / 2) : oi.price;
+      const qtyDiff = quantity - oi.quantity;
+      const priceDiff = price * qtyDiff;
+
+      if (quantity <= 0) {
+        db.prepare('DELETE FROM order_items WHERE id = ?').run(itemId);
+      } else {
+        db.prepare('UPDATE order_items SET quantity = ? WHERE id = ?').run(quantity, itemId);
+      }
+      
+      db.prepare('UPDATE orders SET total_price = MAX(0, total_price + ?) WHERE id = ?').run(priceDiff, oi.order_id);
+      db.prepare("UPDATE menu SET stock = MAX(0, stock - ?) WHERE id = ?").run(qtyDiff, oi.menu_id);
+
+      const updatedOrder = db.prepare(`SELECT o.*, t.table_number, u.name as staff_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN users u ON o.waiter_id = u.id WHERE o.id = ?`).get(oi.order_id) as any;
+      if (updatedOrder) {
+        updatedOrder.items = db.prepare(`SELECT oi.*, m.name as item_name, m.price, m.is_veg, m.half_price FROM order_items oi JOIN menu m ON oi.menu_id = m.id WHERE oi.order_id = ?`).all(oi.order_id);
+        io.emit('new-order', updatedOrder);
+      }
+      io.emit('order-status-updated', { id: oi.order_id });
+      io.emit('stats-update');
+      res.json({ success: true });
+    } catch(e:any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
 
   // Update order notes
   app.patch('/api/orders/:id/notes', authenticate, (req: any, res: any) => {
@@ -1246,7 +1285,7 @@ async function startServer() {
 
   // ── Mark Table Paid: generate bill number + save to Excel ───────────────
   app.post('/api/admin/mark-paid', authenticate, async (req: any, res: any) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    if (req.user.role !== 'admin' && req.user.role !== 'kitchen') return res.status(403).json({ error: 'Forbidden' });
     try {
       const { order_ids, table_number, staff_name } = req.body;
       if (!order_ids?.length) return res.status(400).json({ error: 'No order_ids provided' });
@@ -1500,13 +1539,13 @@ async function startServer() {
 
   app.put('/api/settings', authenticate, (req: any, res: any) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-    const { restaurant_name, address, gst_number, fssai_number, cgst_percent, sgst_percent, service_charge_percent, contact_number } = req.body;
+    const { restaurant_name, address, gst_number, fssai_number, cgst_percent, sgst_percent, service_charge_percent, contact_number, email, website } = req.body;
     db.prepare(`
       UPDATE settings SET 
         restaurant_name = ?, address = ?, gst_number = ?, fssai_number = ?, 
-        cgst_percent = ?, sgst_percent = ?, service_charge_percent = ?, contact_number = ?
+        cgst_percent = ?, sgst_percent = ?, service_charge_percent = ?, contact_number = ?, email = ?, website = ?
       WHERE id = 1
-    `).run(restaurant_name, address, gst_number, fssai_number, cgst_percent, sgst_percent, service_charge_percent, contact_number);
+    `).run(restaurant_name, address, gst_number, fssai_number, cgst_percent, sgst_percent, service_charge_percent, contact_number, email, website);
     res.json({ success: true });
   });
 

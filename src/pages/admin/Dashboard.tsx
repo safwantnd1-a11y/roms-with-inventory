@@ -6,7 +6,7 @@ import {
   LogOut, Plus, Trash2, Clock, Search, ChefHat, X, Wifi, Copy, Check,
   ToggleLeft, ToggleRight, Eye, EyeOff, MapPin, Settings,
   RotateCcw, FileSpreadsheet, FileText, AlertTriangle, BarChart3, KeyRound, Printer,
-  Download, CalendarRange, Trash, Package, Upload, TrendingUp, Filter
+  Download, CalendarRange, Trash, Package, Upload, TrendingUp, Filter, Info
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 import Analytics from './Analytics';
 import StockManagement from './StockManagement';
 
-type Tab = 'stats' | 'menu' | 'staff' | 'billing' | 'analytics' | 'stock' | 'settings';
+type Tab = 'stats' | 'menu' | 'staff' | 'billing' | 'analytics' | 'stock' | 'settings' | 'about';
 
 /* ---------- Animated Stat Card ---------- */
 function StatCard({ icon, label, value, color, delay = 0, onClick, onIconClick, iconAlt }: any) {
@@ -288,8 +288,9 @@ export default function AdminDashboard() {
 
   const downloadMenuTemplate = () => {
     const sampleData = [
-      { name: 'Butter Chicken', category: 'Main', price: 350, half_price: 190, description: 'Creamy tomato gravy chicken', preparation_time: 20, stock: 50, is_veg: 'no', unit: 'plate' },
-      { name: 'Paneer Tikka', category: 'Starter', price: 280, half_price: 150, description: 'Grilled cottage cheese', preparation_time: 15, stock: 30, is_veg: 'yes', unit: 'pcs' },
+      { name: 'Butter Chicken', category: 'Main Course', price: 350, half_price: 190, description: 'Creamy tomato gravy chicken', preparation_time: 20, stock: 50, type: 'non-veg', unit: 'plate' },
+      { name: 'Paneer Tikka', category: 'Starter', price: 280, half_price: 150, description: 'Grilled cottage cheese', preparation_time: 15, stock: 30, type: 'veg', unit: 'pcs' },
+      { name: 'Cold Coffee', category: 'Drinks', price: 120, half_price: 0, description: 'Iced blended coffee', preparation_time: 5, stock: 100, type: 'veg', unit: 'glass' }
     ];
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
@@ -374,6 +375,7 @@ export default function AdminDashboard() {
     { key: 'analytics', label: 'Business Insights', icon: <TrendingUp size={18} /> },
     { key: 'stock',     label: 'Stock Management', icon: <Package size={18} /> },
     { key: 'settings',  label: 'Settings', icon: <Settings size={18} /> },
+    { key: 'about',     label: 'About Developer', icon: <Info size={18} /> },
   ];
 
   return (
@@ -669,11 +671,21 @@ export default function AdminDashboard() {
                         <label className="text-[10px] font-black uppercase text-white/30 tracking-widest block mb-2">Item Name</label>
                         <input type="text" required className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all" placeholder="e.g. Butter Chicken" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
                       </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-white/30 tracking-widest block mb-2">Category</label>
-                        <select className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all appearance-none" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
-                          {['Starter', 'Main', 'Dessert', 'Drink'].map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-white/30 tracking-widest block mb-2">Item Type</label>
+                          <select className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all appearance-none" value={newItem.type} onChange={e => setNewItem({ ...newItem, type: e.target.value, is_veg: e.target.value === 'veg' })}>
+                            <option value="veg">Veg</option>
+                            <option value="nonveg">Non-Veg</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-white/30 tracking-widest block mb-2">Category</label>
+                          <select className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all appearance-none" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
+                            {['Starter', 'Main Course', 'Chinese', 'Drinks', 'Dessert', 'Bread', 'Soup', 'Other'].map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                          <div>
@@ -883,11 +895,80 @@ export default function AdminDashboard() {
                     <input type="number" step="0.1" className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all" value={settings?.sgst_percent || 0} onChange={e => setSettings({...settings, sgst_percent: parseFloat(e.target.value)})} />
                   </div>
                   <div className="md:col-span-2">
+                    <label className="text-[10px] font-black uppercase text-white/30 tracking-widest block mb-2">Contact Details</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <input type="text" placeholder="Mobile Number" className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all" value={settings?.contact_number || ''} onChange={e => setSettings({...settings, contact_number: e.target.value})} />
+                      <input type="email" placeholder="Email Address" className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all" value={settings?.email || ''} onChange={e => setSettings({...settings, email: e.target.value})} />
+                      <input type="text" placeholder="Website (e.g. www.roms.com)" className="w-full bg-[#07070c] border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-orange-500 transition-all" value={settings?.website || ''} onChange={e => setSettings({...settings, website: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
                     <button type="submit" disabled={savingSettings} className="w-full py-4 rounded-2xl bg-orange-500 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20">
                       {savingSettings ? 'Saving...' : 'Save Configuration'}
                     </button>
                   </div>
                 </form>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ABOUT DEVELOPER TAB */}
+          {activeTab === 'about' && (
+            <motion.div key="about" className="space-y-6 max-w-4xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              
+              <div className="rounded-[40px] overflow-hidden bg-gradient-to-br from-orange-500/10 to-purple-500/10 border border-white/10 p-1 lg:p-2">
+                <div className="bg-[#0d0d16] rounded-[32px] p-8 lg:p-12 h-full flex flex-col justify-center items-center text-center">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 mb-6 flex items-center justify-center p-1 shadow-2xl shadow-orange-500/20">
+                     <div className="w-full h-full bg-[#0d0d16] rounded-full flex items-center justify-center">
+                        <ChefHat size={40} className="text-white/80" />
+                     </div>
+                  </div>
+                  
+                  <h1 className="text-4xl lg:text-5xl font-black mb-4 tracking-tight">ROMS</h1>
+                  <p className="text-orange-500 font-bold uppercase tracking-[0.2em] mb-8 text-sm">Restaurant Order Management System</p>
+                  
+                  <p className="text-white/60 text-lg leading-relaxed max-w-2xl mx-auto mb-10">
+                    A next-generation, lightning-fast, and comprehensive system designed to bridge the gap between front-of-house service, kitchen operations, and back-office administration. 
+                    Replaces cluttered paper trails with a premium, real-time digital experience.
+                  </p>
+
+                  <div className="w-full max-w-2xl border-t border-white/10 pt-10">
+                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6">Developed By</h3>
+                     
+                     <div className="bg-white/5 rounded-3xl p-6 border border-white/5 flex flex-col items-center gap-2">
+                        <h2 className="text-2xl font-black text-white">Safwan Raza</h2>
+                        <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
+                           <a href="tel:+917398290844" className="flex items-center gap-2 text-white/60 hover:text-orange-500 transition-colors bg-white/5 px-4 py-2 rounded-full text-sm font-medium">
+                              📞 +91 7398290844
+                           </a>
+                           <a href="mailto:safwan.tnd1@gmail.com" className="flex items-center gap-2 text-white/60 hover:text-orange-500 transition-colors bg-white/5 px-4 py-2 rounded-full text-sm font-medium">
+                              ✉️ safwan.tnd1@gmail.com
+                           </a>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="rounded-[32px] p-8 bg-white/5 border border-white/10">
+                  <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-orange-500"><LayoutDashboard size={20} /> Core Features</h3>
+                  <ul className="space-y-3 text-sm text-white/60 font-medium">
+                    <li>• Real-time Analytics & Revenue Dashboard</li>
+                    <li>• Keyboard-Driven POS for ultra-fast billing</li>
+                    <li>• Live Table & Kitchen Status Tracking</li>
+                    <li>• 80mm Thermal Print Ready Architecture</li>
+                    <li>• Automated CGST/SGST Tax Rules</li>
+                  </ul>
+                </div>
+                <div className="rounded-[32px] p-8 bg-white/5 border border-white/10">
+                  <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-purple-500"><Package size={20} /> Upcoming Features</h3>
+                  <ul className="space-y-3 text-sm text-white/60 font-medium">
+                    <li>• <strong className="text-white/90">Dedicated Waiter Module:</strong> Mobile-friendly app for table-side ordering.</li>
+                    <li>• <strong className="text-white/90">Design Your Dish:</strong> Custom dietary tags & special instructions.</li>
+                    <li>• Advanced Inventory Predictions</li>
+                  </ul>
+                </div>
               </div>
             </motion.div>
           )}

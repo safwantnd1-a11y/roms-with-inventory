@@ -1,7 +1,7 @@
 # Graph Report - C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main  (2026-04-26)
 
 ## Corpus Check
-- 14 files · ~71,217 words
+- 14 files · ~71,473 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -84,11 +84,11 @@ Nodes (4): fetchMenu(), handleAddMenuItem(), handleDeleteMenuItem(), handleToggl
 
 ### Community 8 - "Community 8"
 Cohesion: 0.67
-Nodes (3): fetchStats(), handleMarkPaid(), resetOrders()
+Nodes (3): fetchStaff(), handleGenerateStaff(), handleRemoveStaff()
 
 ### Community 9 - "Community 9"
 Cohesion: 0.67
-Nodes (3): fetchStaff(), handleGenerateStaff(), handleRemoveStaff()
+Nodes (3): fetchStats(), handleMarkPaid(), resetOrders()
 
 ### Community 10 - "Community 10"
 Cohesion: 1.0
@@ -113,7 +113,7 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `fetchOrders()` connect `Community 0` to `Community 8`, `Community 2`?**
+- **Why does `fetchOrders()` connect `Community 0` to `Community 9`, `Community 2`?**
   _High betweenness centrality (0.050) - this node is a cross-community bridge._
 - **Why does `fetchMenu()` connect `Community 7` to `Community 0`, `Community 2`?**
   _High betweenness centrality (0.021) - this node is a cross-community bridge._

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { useSocket } from '../../hooks/useSocket';
 import { ChefHat, Clock, CheckCircle, Play, LogOut, Search, Wifi, Bell, X, ToggleLeft, ToggleRight, Layers, ShoppingBag, Send, Plus, Minus, CheckCircle2, Trash2 } from 'lucide-react';
@@ -39,9 +39,13 @@ export default function OrderSectionDashboard() {
   const [posLoading, setPosLoading] = useState(false);
   const [posDiscount, setPosDiscount] = useState(0);
   const posSearchRef = useRef<HTMLInputElement>(null);
+  const [showBill, setShowBill] = useState<any>(null); // bill preview modal
+  const [settlingBill, setSettlingBill] = useState(false);
+  const [statusLoading, setStatusLoading] = useState<number | null>(null);
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
 
-  // Hotkeys for quick item add — Q W E R T Y U I O P A S D F G H
-  const ITEM_HOTKEYS = ['q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h'];
+  // Hotkeys for quick item add — all 26 alphabet keys mapped to grid
+  const ITEM_HOTKEYS = ['q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h','j','k','l','z','x','c','v','b','n','m'];
 
   useEffect(() => {
     fetchOrders();
@@ -104,6 +108,72 @@ export default function OrderSectionDashboard() {
     }
   };
 
+  // Status cycle: new → preparing → ready → served → billing
+  const STATUS_CYCLE: Record<string, string> = {
+    new: 'preparing', preparing: 'ready', ready: 'served', served: 'billing', billing: 'billing'
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    new: 'Mark Preparing', preparing: 'Mark Ready', ready: 'Mark Served', served: 'Mark Billing', billing: 'Billed'
+  };
+
+  const handleUpdateOrderStatus = async (orderId: number, newStatus: string) => {
+    setStatusLoading(orderId);
+    try {
+      setAuthHeader();
+      await axios.put(`/api/orders/${orderId}/status`, { status: newStatus });
+      await fetchOrders();
+    } catch (e: any) {
+      alert('Status update failed: ' + (e.response?.data?.error || e.message));
+    } finally { setStatusLoading(null); }
+  };
+
+  const handleGenerateBill = async (tableOrders: any[]) => {
+    const subtotal = tableOrders.reduce((s, o) => s + (o.total_price || 0), 0);
+    setShowBill({ tableOrders, subtotal, discount: posDiscount });
+    
+    // Sync with Admin: mark orders as 'billing' so they show up for checkout
+    try {
+      setAuthHeader();
+      for (const order of tableOrders) {
+        if (order.status !== 'billing' && order.status !== 'paid') {
+          await axios.put(`/api/orders/${order.id}/status`, { status: 'billing' });
+        }
+      }
+      fetchOrders();
+    } catch(e){}
+  };
+
+  const handleSettleBill = async () => {
+    if (!showBill) return;
+    setSettlingBill(true);
+    try {
+      setAuthHeader();
+      const res = await axios.post('/api/admin/mark-paid', {
+        order_ids: showBill.tableOrders.map((o: any) => o.id),
+        table_number: selectedPosTable?.table_number,
+        staff_name: user?.name || 'Kitchen Staff'
+      });
+      // Update showBill with generated bill_number
+      setShowBill({ ...showBill, bill_number: res.data.bill_number });
+      fetchOrders();
+      fetchTables();
+    } catch (e: any) {
+      alert('Failed to generate bill: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setSettlingBill(false);
+    }
+  };
+
+  const handleEditItemQuantity = async (itemId: number, newQty: number) => {
+    try {
+      setAuthHeader();
+      await axios.patch(`/api/orders/items/${itemId}`, { quantity: newQty });
+      await fetchOrders();
+    } catch (e: any) {
+      alert('Failed to edit item: ' + (e.response?.data?.error || e.message));
+    }
+  };
+
   const groupOrdersByTable = () => {
     const groups: any = {};
     orders.filter(o => o.status !== 'cancelled' && o.status !== 'paid').forEach(o => {
@@ -136,15 +206,17 @@ export default function OrderSectionDashboard() {
   const handlePlacePosOrder = async () => {
     if (!selectedPosTable || posCart.length === 0) return;
     setPosLoading(true);
+    const tableName = selectedPosTable.table_number;
     try {
+      setAuthHeader();
       await axios.post('/api/orders', {
         table_id: selectedPosTable.id,
         items: posCart.map(i => ({ menu_id: i.id, quantity: i.quantity }))
       });
       setPosCart([]);
-      setSelectedPosTable(null);
-      fetchOrders();
-      alert(`Order placed for ${selectedPosTable.table_number}!`);
+      setPosDiscount(0);
+      // Keep table selected so Active Orders panel shows the new order
+      await fetchOrders();
     } catch (e: any) {
       alert('Failed: ' + (e.response?.data?.error || e.message));
     } finally {
@@ -157,29 +229,36 @@ export default function OrderSectionDashboard() {
       // Prevent default browser behavior for F-keys
       if (['F1', 'F2', 'F3', 'F4', 'F5'].includes(e.key)) e.preventDefault();
 
-      if (e.key === 'F1') { setPosCart([]); setSelectedPosTable(null); setPosDiscount(0); setPosSearch(''); }
+      if (e.key === 'F1') { setPosCart([]); setSelectedPosTable(null); setPosDiscount(0); setPosSearch(''); setEditingOrderId(null); }
       if (e.key === 'F2') { setTimeout(() => posSearchRef.current?.focus(), 100); }
       if (e.key === 'F3') { setTimeout(() => document.getElementById('pos-discount')?.focus(), 100); }
-      if (e.key === 'Escape') { setPosSearch(''); setPosCart([]); setPosDiscount(0); setSelectedPosTable(null); }
+      if (e.key === 'F4') { document.getElementById('btn-generate-bill')?.click(); }
+      if (e.key === 'Escape') { setPosSearch(''); setPosCart([]); setPosDiscount(0); setSelectedPosTable(null); setEditingOrderId(null); }
 
-      // Item hotkeys (Q-H row) — add item to cart instantly
+      // Item hotkeys (Q-H row) — add/remove item to/from cart instantly
       const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
-      if (!isTyping && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      if (!isTyping && !e.altKey && !e.metaKey) {
         const key = e.key.toLowerCase();
-        const ITEM_HOTKEYS = ['q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h'];
+        const ITEM_HOTKEYS = ['q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h','j','k','l','z','x','c','v','b','n','m'];
         const hkIdx = ITEM_HOTKEYS.indexOf(key);
         if (hkIdx !== -1) {
           const filtered = menu
             .filter(m => menuVegFilter === 'all' || (menuVegFilter === 'veg' ? m.is_veg : !m.is_veg))
             .filter(m => m.name.toLowerCase().includes(posSearch.toLowerCase()) || (m.category || '').toLowerCase().includes(posSearch.toLowerCase()));
+          
           if (filtered[hkIdx]) {
-            addToPosCart(filtered[hkIdx]);
+            e.preventDefault();
+            if (e.ctrlKey) {
+              updatePosQty(filtered[hkIdx].id, -1);
+            } else {
+              addToPosCart(filtered[hkIdx]);
+            }
             return;
           }
         }
 
-        // Category selection (1-5)
-        if (e.key >= '1' && e.key <= '5') {
+        // Category selection (1-5) - must not trigger if Ctrl is pressed
+        if (!e.ctrlKey && e.key >= '1' && e.key <= '5') {
           const catMap: any = { '1': 'Veg', '2': 'Non-Veg', '3': 'Starters', '4': 'Chinese', '5': 'Drinks' };
           if (catMap[e.key]) {
             const cat = catMap[e.key];
@@ -239,6 +318,17 @@ export default function OrderSectionDashboard() {
     } finally { setTableLoading(false); }
   };
 
+  const handleUnmergeTable = async (tableId: number) => {
+    setTableLoading(true);
+    try {
+      setAuthHeader();
+      await axios.post('/api/tables/unmerge', { source_table_id: tableId });
+      await fetchTables();
+    } catch (e: any) {
+      alert('Failed to unmerge table: ' + (e.response?.data?.error || e.message));
+    } finally { setTableLoading(false); }
+  };
+
   const handleDeleteTable = async () => {
     if (!deleteTableId) return;
     setTableLoading(true);
@@ -254,16 +344,6 @@ export default function OrderSectionDashboard() {
     } finally { setTableLoading(false); }
   };
 
-  const handleUnmergeTable = async (tableId: number) => {
-    try {
-      setAuthHeader();
-      await axios.post('/api/tables/unmerge', { source_table_id: tableId });
-      await fetchTables();
-      await fetchOrders();
-    } catch (e: any) {
-      alert('Unmerge failed: ' + (e.response?.data?.error || e.message));
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#070710', color: 'white' }}>
@@ -357,10 +437,10 @@ export default function OrderSectionDashboard() {
                   return (
                     <div key={t.id} className="relative group flex flex-col items-center gap-1">
                       <motion.button onClick={() => setSelectedPosTable(t)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        className={`w-14 h-14 rounded-2xl border-2 flex flex-col items-center justify-center transition-all relative ${statusColor}`}>
-                        <span className="text-[10px] font-black uppercase tracking-tight leading-none">{t.table_number.split(' ')[1] || t.table_number}</span>
+                        className={`w-16 h-16 rounded-2xl border-2 flex flex-col items-center justify-center transition-all relative ${statusColor}`}>
+                        <span className="text-3xl font-black uppercase tracking-tight leading-none">{t.table_number.split(' ')[1] || t.table_number}</span>
                         {isMerged && (
-                          <span className="text-[7px] font-bold text-purple-300 leading-none mt-0.5 opacity-90">
+                          <span className="text-[9px] font-bold text-purple-300 leading-none mt-1 opacity-90">
                             →{mergedIntoName?.replace('Table ', 'T') || mergedIntoName}
                           </span>
                         )}
@@ -463,13 +543,27 @@ export default function OrderSectionDashboard() {
                                   <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
                                   <span className="text-[9px] font-black text-white/50 uppercase">#{order.id}</span>
                                 </div>
-                                <span className={`text-[8px] font-black uppercase tracking-wide ${s.text}`}>{order.status}</span>
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => setEditingOrderId(editingOrderId === order.id ? null : order.id)} 
+                                    className="text-[8px] font-black uppercase text-white/40 hover:text-white transition-colors">
+                                    {editingOrderId === order.id ? 'Done' : 'Edit (F5)'}
+                                  </button>
+                                  <span className={`text-[8px] font-black uppercase tracking-wide ${s.text}`}>{order.status}</span>
+                                </div>
                               </div>
-                              <div className="space-y-1">
+                              <div className="space-y-0.5">
                                 {(order.items || []).map((it: any) => (
-                                  <div key={it.item_id} className="flex justify-between items-center">
+                                  <div key={it.item_id} className="flex justify-between items-center py-0.5">
                                     <span className="text-[10px] font-semibold text-white/70 truncate flex-1">{it.item_name}</span>
-                                    <span className="text-[9px] font-black text-white/40 ml-1">×{it.quantity}</span>
+                                    {editingOrderId === order.id ? (
+                                      <div className="flex items-center gap-1 ml-2 bg-black/20 rounded px-1">
+                                        <button onClick={() => handleEditItemQuantity(it.item_id, it.quantity - 1)} className="text-white/40 hover:text-red-400 p-0.5"><Minus size={10} /></button>
+                                        <span className="text-[9px] font-black w-3 text-center">{it.quantity}</span>
+                                        <button onClick={() => handleEditItemQuantity(it.item_id, it.quantity + 1)} className="text-white/40 hover:text-green-400 p-0.5"><Plus size={10} /></button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[9px] font-black text-white/40 ml-1">×{it.quantity}</span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -483,15 +577,20 @@ export default function OrderSectionDashboard() {
                       </AnimatePresence>
                     )}
                   </div>
-                  {/* Footer */}
+                  {/* Footer — Running total + Generate Bill */}
                   {tableOrders.length > 0 && (
-                    <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="px-4 py-3 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
                       <div className="flex justify-between items-center">
                         <span className="text-[9px] font-black uppercase text-white/40">Running</span>
                         <span className="text-base font-black text-orange-400">
                           ₹{tableOrders.reduce((s, o) => s + (o.total_price || 0), 0).toLocaleString()}
                         </span>
                       </div>
+                      <button id="btn-generate-bill"
+                        onClick={() => handleGenerateBill(tableOrders)}
+                        className="w-full py-2.5 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-wide flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20">
+                        <CheckCircle2 size={14} /> Generate Bill (F4)
+                      </button>
                     </div>
                   )}
                 </div>
@@ -500,8 +599,8 @@ export default function OrderSectionDashboard() {
 
             {/* ── MENU ─────────────────────────────────────────────── */}
             <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-              <div className="flex items-center gap-4">
-                <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-4 pt-2">
+                <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar pb-1">
                   {(['All', 'Veg', 'Non-Veg', 'Starters', 'Chinese', 'Drinks'] as const).map((cat, ci) => {
                     const catKey = ci === 0 ? null : String(ci); // All=no key, Veg=1..Drinks=5
                     return (
@@ -515,7 +614,7 @@ export default function OrderSectionDashboard() {
                       }`}>
                         {cat}
                         {catKey && (
-                          <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-md bg-amber-500 border border-amber-400 text-[8px] font-black text-black flex items-center justify-center shadow-lg shadow-amber-500/30">{catKey}</span>
+                          <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 min-w-[18px] h-[16px] px-1.5 rounded bg-amber-500 border border-amber-400 text-[8px] font-black text-black flex items-center justify-center shadow-md shadow-amber-500/30">{catKey}</span>
                         )}
                       </button>
                     );
@@ -539,13 +638,13 @@ export default function OrderSectionDashboard() {
                         className="p-3 rounded-2xl bg-white/5 border border-white/5 hover:border-orange-500/30 text-left flex flex-col justify-between h-28 group transition-all relative overflow-hidden">
                         {/* Hotkey badge */}
                         {hotkey && (
-                          <span className="absolute top-2 right-2 w-5 h-5 rounded-md bg-amber-500 border border-amber-400 text-[9px] font-black text-black flex items-center justify-center uppercase shadow-md shadow-amber-500/40 group-hover:scale-110 transition-transform">
+                          <span className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-amber-500 border border-amber-400 text-xs font-black text-black flex items-center justify-center uppercase shadow-lg shadow-amber-500/40 group-hover:scale-110 transition-transform">
                             {hotkey}
                           </span>
                         )}
                         <div className="flex items-center gap-1">
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${item.is_veg ? 'bg-green-500' : 'bg-red-500'}`} />
-                          <span className="text-[11px] font-black text-orange-500 ml-auto pr-6">₹{item.price}</span>
+                          <span className="text-sm font-black text-orange-500 ml-auto pr-8">₹{item.price}</span>
                         </div>
                         <div className="flex-1 flex flex-col justify-end">
                           <h4 className="font-bold text-xs leading-tight line-clamp-2 text-white">{item.name}</h4>
@@ -591,15 +690,6 @@ export default function OrderSectionDashboard() {
               </div>
               <div className="p-6 bg-white/[0.02] border-t border-white/10 space-y-3">
                 <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-white/50">Subtotal</span><span className="text-xs font-bold text-white">₹{posCart.reduce((s, i) => s + i.price * i.quantity, 0).toLocaleString()}</span></div>
-                {settings.cgst_percent > 0 && (
-                  <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-white/50">CGST ({settings.cgst_percent}%)</span><span className="text-xs font-bold text-white">₹{(posCart.reduce((s, i) => s + i.price * i.quantity, 0) * settings.cgst_percent / 100).toFixed(2)}</span></div>
-                )}
-                {settings.sgst_percent > 0 && (
-                  <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-white/50">SGST ({settings.sgst_percent}%)</span><span className="text-xs font-bold text-white">₹{(posCart.reduce((s, i) => s + i.price * i.quantity, 0) * settings.sgst_percent / 100).toFixed(2)}</span></div>
-                )}
-                {settings.service_charge_percent > 0 && (
-                  <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-white/50">Service ({settings.service_charge_percent}%)</span><span className="text-xs font-bold text-white">₹{(posCart.reduce((s, i) => s + i.price * i.quantity, 0) * settings.service_charge_percent / 100).toFixed(2)}</span></div>
-                )}
                 <div className="flex justify-between items-center group">
                    <span className="text-[10px] font-bold text-white/50 flex items-center gap-1">Discount <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-amber-500/25 border border-amber-500/50 font-black text-amber-300">F3</span></span>
                    <div className="flex items-center border-b border-transparent group-hover:border-white/20 focus-within:border-orange-500 pb-0.5 transition-all">
@@ -610,10 +700,8 @@ export default function OrderSectionDashboard() {
                 <div className="pt-3 border-t border-white/10 flex justify-between items-center">
                    <span className="text-[10px] font-black uppercase text-white/80 tracking-widest">Grand Total</span>
                    <span className="text-xl font-black text-orange-500">
-                      ₹{Math.max(0, (
-                        posCart.reduce((s, i) => s + i.price * i.quantity, 0) *
-                        (1 + (settings.cgst_percent + settings.sgst_percent + settings.service_charge_percent) / 100)
-                      ) - posDiscount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹{Math.max(0, posCart.reduce((s, i) => s + i.price * i.quantity, 0) - posDiscount)
+                        .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                    </span>
                 </div>
                 <button disabled={posCart.length === 0 || !selectedPosTable || posLoading} onClick={handlePlacePosOrder}
@@ -636,7 +724,156 @@ export default function OrderSectionDashboard() {
         </div>
       </main>
 
-      {/* Add Table Modal */}
+      {/* ── Bill Preview Modal ─────────────────────────────────────── */}
+      {showBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 print:p-0 print:bg-white print:block">
+          
+          <style>{`
+            @media print {
+              body * { visibility: hidden; }
+              #thermal-bill, #thermal-bill * { visibility: visible; }
+              #thermal-bill { 
+                position: absolute; left: 0; top: 0; 
+                width: 80mm; margin: 0; padding: 10px; 
+                background: white; color: black; box-shadow: none; border-radius: 0;
+              }
+              .print-hide { display: none !important; }
+              @page { margin: 0; }
+            }
+          `}</style>
+
+          <motion.div id="thermal-bill" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="bg-white text-black rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl print:shadow-none print:max-w-none print:w-[80mm]">
+            {/* Header - Styled like Admin */}
+            <div className="text-center mb-6 border-b-2 border-dashed border-black/10 pb-4 pt-4 px-6 relative print:px-0 print:pt-0">
+               <button onClick={() => setShowBill(null)} className="print-hide w-8 h-8 rounded-full bg-black/5 flex items-center justify-center hover:bg-black/10 absolute right-4 top-4 text-black/50"><X size={14} /></button>
+               <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center mx-auto mb-3">
+                  <ChefHat size={24} className="text-white" />
+               </div>
+               <h3 className="text-xl font-black uppercase tracking-tighter text-black">{settings?.restaurant_name || 'Restaurant Receipt'}</h3>
+               <p className="text-[10px] font-bold text-black/50 uppercase leading-relaxed max-w-[200px] mx-auto mb-2">{settings?.address}</p>
+               <div className="flex flex-col gap-1">
+                 {settings?.gst_number && <p className="text-[9px] font-black text-black/40 uppercase tracking-widest">GSTIN: {settings.gst_number}</p>}
+                 {settings?.fssai_number && <p className="text-[9px] font-black text-black/40 uppercase tracking-widest">FSSAI: {settings.fssai_number}</p>}
+                 {settings?.contact_number && <p className="text-[9px] font-black text-black/40 uppercase tracking-widest">PH: {settings.contact_number}</p>}
+                 {settings?.email && <p className="text-[9px] font-black text-black/40 uppercase tracking-widest">E: {settings.email}</p>}
+                 {settings?.website && <p className="text-[9px] font-black text-black/40 uppercase tracking-widest">W: {settings.website}</p>}
+               </div>
+               <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mt-4">Official Tax Invoice • {showBill.bill_number || 'Pre-Bill'}</p>
+            </div>
+
+            <div className="px-6 space-y-6 mb-6 print:px-0">
+               <div className="flex justify-between border-b-2 border-dashed border-black/10 pb-4">
+                  <div className="text-left">
+                     <p className="text-[10px] font-black text-black/30 uppercase tracking-widest">Table</p>
+                     <p className="text-lg font-black text-black">{selectedPosTable?.table_number}</p>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-[10px] font-black text-black/30 uppercase tracking-widest">Date</p>
+                     <p className="text-xs font-bold text-black">{new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}<br/>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+               </div>
+
+               <div className="space-y-3 max-h-72 overflow-y-auto no-scrollbar">
+                  {showBill.tableOrders.map((order: any) => (
+                    <React.Fragment key={order.id}>
+                      {(order.items || []).map((it: any) => (
+                        <div key={it.item_id} className="flex justify-between items-center text-sm">
+                           <div className="flex items-center gap-2">
+                              <span className="font-black text-orange-500">{it.quantity}x</span>
+                              <span className="font-bold text-black">{it.item_name}</span>
+                           </div>
+                           <span className="font-black text-black">₹{(it.price * it.quantity).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </div>
+            </div>
+
+            {/* Totals */}
+            <div className="px-6 border-t-2 border-dashed border-black/10 pt-4 space-y-2 print:px-0">
+               <div className="flex justify-between text-sm font-bold text-black">
+                  <span>Subtotal</span>
+                  <span>₹{showBill.subtotal.toLocaleString()}</span>
+               </div>
+               {showBill.discount > 0 && (
+                 <div className="flex justify-between text-xs font-bold text-red-500">
+                   <span>Discount</span>
+                   <span>-₹{showBill.discount}</span>
+                 </div>
+               )}
+               
+               {/* Tax calculations using Admin logic */}
+               {(() => {
+                 const finalSubtotal = showBill.subtotal - (showBill.discount || 0);
+                 const cgstAmt = finalSubtotal * (settings?.cgst_percent || 0) / 100;
+                 const sgstAmt = finalSubtotal * (settings?.sgst_percent || 0) / 100;
+                 const scAmt = finalSubtotal * (settings?.service_charge_percent || 0) / 100;
+                 const rawTotal = finalSubtotal + cgstAmt + sgstAmt + scAmt;
+                 const grandTotal = Math.round(rawTotal);
+                 const roundOff = grandTotal - rawTotal;
+
+                 return (
+                   <>
+                     {settings?.cgst_percent > 0 && (
+                       <div className="flex justify-between text-[11px] text-black/60">
+                          <span>CGST ({settings.cgst_percent}%)</span>
+                          <span>₹{cgstAmt.toFixed(2)}</span>
+                       </div>
+                     )}
+                     {settings?.sgst_percent > 0 && (
+                       <div className="flex justify-between text-[11px] text-black/60">
+                          <span>SGST ({settings.sgst_percent}%)</span>
+                          <span>₹{sgstAmt.toFixed(2)}</span>
+                       </div>
+                     )}
+                     {settings?.service_charge_percent > 0 && (
+                       <div className="flex justify-between text-[11px] text-black/60">
+                          <span>Service Charge ({settings.service_charge_percent}%)</span>
+                          <span>₹{scAmt.toFixed(2)}</span>
+                       </div>
+                     )}
+                      {Math.abs(roundOff) >= 0.01 && (
+                        <div className="flex justify-between text-[11px] text-black/60">
+                           <span>Round Off</span>
+                           <span>{roundOff > 0 ? "+" : ""}{`${Math.abs(roundOff).toFixed(2)}`}</span>
+                        </div>
+                      )}
+                     <div className="flex justify-between text-2xl font-black pt-4 border-t border-black/5 text-black">
+                        <span>Grand Total</span>
+                        <span className="text-orange-500">₹{grandTotal.toLocaleString()}</span>
+                     </div>
+                   </>
+                 );
+               })()}
+            </div>
+
+            <div className="mt-6 mb-4 text-center space-y-1 px-6 print:px-0">
+               <p className="text-[10px] font-black uppercase tracking-tighter text-black">Thank you for dining with us!</p>
+               <p className="text-[9px] font-bold text-black/30 uppercase">Visit Again • software by ROMS</p>
+            </div>
+            {/* Actions */}
+            <div className="px-6 pb-5 flex gap-2 print-hide">
+              {!showBill.bill_number && (
+                <button onClick={handleSettleBill} disabled={settlingBill}
+                  className="flex-1 py-3 rounded-2xl bg-green-500 text-white font-black text-[10px] sm:text-xs uppercase hover:bg-green-600 shadow-lg shadow-green-500/20 disabled:opacity-50">
+                  {settlingBill ? 'Wait...' : '✅ Checkout'}
+                </button>
+              )}
+              <button onClick={() => window.print()}
+                className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-black text-[10px] sm:text-xs uppercase hover:bg-orange-600 shadow-lg shadow-orange-500/20">
+                🖨 Print
+              </button>
+              <button onClick={() => setShowBill(null)}
+                className="flex-1 py-3 rounded-2xl bg-black/5 text-black/70 font-black text-[10px] sm:text-xs uppercase hover:bg-black/10">
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {showAddTable && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#1a1a24] rounded-3xl border border-white/10 p-6 w-full max-w-sm">
