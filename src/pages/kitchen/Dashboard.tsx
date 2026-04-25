@@ -190,11 +190,18 @@ export default function OrderSectionDashboard() {
       }
 
       if (e.key === 'Enter' && e.shiftKey) { handlePlacePosOrder(); }
-      // Table selection Alt+1..10 (0 for 10)
-      if (e.altKey && (e.key >= '0' && e.key <= '9')) {
-        const tableNum = e.key === '0' ? 10 : parseInt(e.key);
-        const t = tables.find(t => String(t.table_number).replace(/\D/g, '') === String(tableNum));
-        if (t) setSelectedPosTable(t);
+
+      // Table hotkeys — index-based, auto-assigned to any new table
+      // Tables 0-9  (index) → Alt+1..Alt+0
+      // Tables 10-19 (index) → Ctrl+1..Ctrl+0
+      if ((e.altKey || e.ctrlKey) && e.key >= '0' && e.key <= '9') {
+        const digit = parseInt(e.key);
+        const slot  = digit === 0 ? 9 : digit - 1; // Alt+1=idx0, Alt+0=idx9
+        const idx   = e.ctrlKey ? slot + 10 : slot;
+        if (tables[idx]) {
+          e.preventDefault();
+          setSelectedPosTable(tables[idx]);
+        }
       }
     };
     window.addEventListener('keydown', handleGlobalKeys);
@@ -357,13 +364,21 @@ export default function OrderSectionDashboard() {
                             →{mergedIntoName?.replace('Table ', 'T') || mergedIntoName}
                           </span>
                         )}
-                        {/* Alt+N hotkey badge */}
+                      {/* Auto-assigned hotkey badge based on index */}
                         {(() => {
-                          const num = parseInt(String(t.table_number).replace(/\D/g,''));
-                          const label = num === 10 ? 'Alt+0' : (num >= 1 && num <= 9) ? `Alt+${num}` : null;
-                          return label ? (
-                            <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded text-[7px] font-black text-amber-400 bg-amber-500/20 border border-amber-500/40 whitespace-nowrap">{label}</span>
-                          ) : null;
+                          const tableMap: Record<number, string> = {};
+                          tables.forEach((t2: any) => { tableMap[t2.id] = t2.table_number; });
+                          const idx = tables.findIndex((t2: any) => t2.id === t.id);
+                          if (idx < 0 || idx > 19) return null;
+                          const digit  = idx % 10;  // 0..9
+                          const layer  = idx < 10 ? 'Alt' : 'Ctrl';
+                          const key    = digit === 9 ? '0' : String(digit + 1);
+                          const label  = `${layer}+${key}`;
+                          return (
+                            <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded text-[7px] font-black text-amber-400 bg-amber-500/20 border border-amber-500/40 whitespace-nowrap">
+                              {label}
+                            </span>
+                          );
                         })()}
                       </motion.button>
                       {/* Delete on hover */}
@@ -388,9 +403,103 @@ export default function OrderSectionDashboard() {
             </div>
           </div>
 
-          {/* MAIN: Menu | Cart */}
-          <div className="flex-1 flex gap-6 min-h-0">
-            <div className="flex-1 flex flex-col gap-6 overflow-hidden">
+          {/* MAIN: Active Orders | Menu | Cart */}
+          <div className="flex-1 flex gap-4 min-h-0">
+
+            {/* ── ACTIVE ORDERS (LEFT) ─────────────────────────────── */}
+            {(() => {
+              const tableOrders = selectedPosTable
+                ? orders.filter(o => o.table_id === selectedPosTable.id && o.status !== 'paid' && o.status !== 'cancelled')
+                : [];
+              const statusStyle: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+                new:       { bg: 'bg-blue-500/15',   text: 'text-blue-300',   border: 'border-blue-500/40',   dot: 'bg-blue-400' },
+                preparing: { bg: 'bg-yellow-500/15', text: 'text-yellow-300', border: 'border-yellow-500/40', dot: 'bg-yellow-400' },
+                ready:     { bg: 'bg-green-500/15',  text: 'text-green-300',  border: 'border-green-500/40',  dot: 'bg-green-400' },
+                served:    { bg: 'bg-purple-500/15', text: 'text-purple-300', border: 'border-purple-500/40', dot: 'bg-purple-400' },
+                billing:   { bg: 'bg-orange-500/15', text: 'text-orange-300', border: 'border-orange-500/40', dot: 'bg-orange-400' },
+              };
+              return (
+                <div className="w-60 flex-shrink-0 flex flex-col rounded-[28px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  {/* Header */}
+                  <div className="px-4 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-white">Active Orders</h3>
+                        {tableOrders.length > 0 && (
+                          <motion.span key={tableOrders.length} initial={{ scale: 0.6 }} animate={{ scale: 1 }}
+                            className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] font-black text-white min-w-[18px] text-center">
+                            {tableOrders.length}
+                          </motion.span>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-white/30 font-bold uppercase mt-0.5 tracking-wider">
+                        {selectedPosTable ? selectedPosTable.table_number : 'No table selected'}
+                      </p>
+                    </div>
+                    {tableOrders.length > 0 && (
+                      <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 1.8, repeat: Infinity }}
+                        className="w-2 h-2 rounded-full bg-red-400" />
+                    )}
+                  </div>
+                  {/* Body */}
+                  <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 no-scrollbar">
+                    {!selectedPosTable ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center" style={{ opacity: 0.15 }}>
+                        <Clock size={28} /><p className="text-[9px] font-black uppercase mt-2">Select a table</p>
+                      </div>
+                    ) : tableOrders.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center" style={{ opacity: 0.15 }}>
+                        <CheckCircle size={28} /><p className="text-[9px] font-black uppercase mt-2">All clear!</p>
+                      </div>
+                    ) : (
+                      <AnimatePresence>
+                        {tableOrders.map(order => {
+                          const s = statusStyle[order.status] || { bg: 'bg-white/5', text: 'text-white/40', border: 'border-white/10', dot: 'bg-white/30' };
+                          return (
+                            <motion.div key={order.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
+                              className={`p-3 rounded-2xl border space-y-2 ${s.bg} ${s.border}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                                  <span className="text-[9px] font-black text-white/50 uppercase">#{order.id}</span>
+                                </div>
+                                <span className={`text-[8px] font-black uppercase tracking-wide ${s.text}`}>{order.status}</span>
+                              </div>
+                              <div className="space-y-1">
+                                {(order.items || []).map((it: any) => (
+                                  <div key={it.item_id} className="flex justify-between items-center">
+                                    <span className="text-[10px] font-semibold text-white/70 truncate flex-1">{it.item_name}</span>
+                                    <span className="text-[9px] font-black text-white/40 ml-1">×{it.quantity}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex justify-between items-center pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                <span className="text-[9px] text-white/30 font-bold">Total</span>
+                                <span className="text-[11px] font-black text-orange-400">₹{order.total_price?.toLocaleString()}</span>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    )}
+                  </div>
+                  {/* Footer */}
+                  {tableOrders.length > 0 && (
+                    <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase text-white/40">Running</span>
+                        <span className="text-base font-black text-orange-400">
+                          ₹{tableOrders.reduce((s, o) => s + (o.total_price || 0), 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── MENU ─────────────────────────────────────────────── */}
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
               <div className="flex items-center gap-4">
                 <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar">
                   {(['All', 'Veg', 'Non-Veg', 'Starters', 'Chinese', 'Drinks'] as const).map((cat, ci) => {
@@ -419,7 +528,7 @@ export default function OrderSectionDashboard() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 pr-2 no-scrollbar">
+              <div className="flex-1 overflow-y-auto grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 pr-2 no-scrollbar content-start">
                 {menu
                   .filter(m => menuVegFilter === 'all' || (menuVegFilter === 'veg' ? m.is_veg : !m.is_veg))
                   .filter(m => m.name.toLowerCase().includes(posSearch.toLowerCase()) || (m.category || '').toLowerCase().includes(posSearch.toLowerCase()))
@@ -427,20 +536,20 @@ export default function OrderSectionDashboard() {
                     const hotkey = ITEM_HOTKEYS[idx];
                     return (
                       <motion.button key={item.id} onClick={() => addToPosCart(item)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-                        className="p-2.5 rounded-2xl bg-white/5 border border-white/5 hover:border-orange-500/30 text-left flex flex-col justify-between h-24 group transition-all relative overflow-hidden">
+                        className="p-3 rounded-2xl bg-white/5 border border-white/5 hover:border-orange-500/30 text-left flex flex-col justify-between h-28 group transition-all relative overflow-hidden">
                         {/* Hotkey badge */}
                         {hotkey && (
-                          <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-amber-500 border border-amber-400 text-[9px] font-black text-black flex items-center justify-center uppercase shadow-md shadow-amber-500/40 group-hover:scale-110 transition-transform">
+                          <span className="absolute top-2 right-2 w-5 h-5 rounded-md bg-amber-500 border border-amber-400 text-[9px] font-black text-black flex items-center justify-center uppercase shadow-md shadow-amber-500/40 group-hover:scale-110 transition-transform">
                             {hotkey}
                           </span>
                         )}
                         <div className="flex items-center gap-1">
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${item.is_veg ? 'bg-green-500' : 'bg-red-500'}`} />
-                          <span className="text-[9px] font-black text-orange-500 ml-auto pr-5">₹{item.price}</span>
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${item.is_veg ? 'bg-green-500' : 'bg-red-500'}`} />
+                          <span className="text-[11px] font-black text-orange-500 ml-auto pr-6">₹{item.price}</span>
                         </div>
                         <div className="flex-1 flex flex-col justify-end">
-                          <h4 className="font-bold text-[10px] leading-tight line-clamp-2 text-white">{item.name}</h4>
-                          <p className="text-[8px] font-black uppercase text-white/20 mt-0.5">{item.category}</p>
+                          <h4 className="font-bold text-xs leading-tight line-clamp-2 text-white">{item.name}</h4>
+                          <p className="text-[9px] font-black uppercase text-white/25 mt-1">{item.category}</p>
                         </div>
                       </motion.button>
                     );
@@ -518,91 +627,11 @@ export default function OrderSectionDashboard() {
                 <div className="flex items-center justify-between text-[8px] font-bold text-white/20 uppercase mt-2">
                    <span>F3 — Discount</span>
                    <span>F2 — Search</span>
-                   <span>Alt+N — Table</span>
+                   <span>Alt/Ctrl+N — Table</span>
                 </div>
               </div>
             </div>
 
-            {/* ── ACTIVE ORDERS PANEL (right side) ──────────────────────── */}
-            {(() => {
-              const tableOrders = selectedPosTable
-                ? orders.filter(o =>
-                    o.table_id === selectedPosTable.id &&
-                    o.status !== 'paid' &&
-                    o.status !== 'cancelled'
-                  )
-                : [];
-
-              const statusStyle: Record<string, string> = {
-                new:      'bg-blue-500/20 text-blue-300 border-blue-500/40',
-                preparing:'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
-                ready:    'bg-green-500/20 text-green-300 border-green-500/40',
-                served:   'bg-purple-500/20 text-purple-300 border-purple-500/40',
-                billing:  'bg-orange-500/20 text-orange-300 border-orange-500/40',
-              };
-
-              return (
-                <div className="w-64 bg-white/5 rounded-[40px] border border-white/10 flex flex-col overflow-hidden flex-shrink-0">
-                  <div className="p-5 border-b border-white/10">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-black">Active Orders</h3>
-                      {tableOrders.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-[10px] font-black text-red-300">{tableOrders.length}</span>
-                      )}
-                    </div>
-                    <p className="text-[9px] text-white/30 font-bold uppercase mt-0.5">
-                      {selectedPosTable ? selectedPosTable.table_number : 'Select a table'}
-                    </p>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar">
-                    {!selectedPosTable ? (
-                      <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-                        <Clock size={32} /><p className="text-[10px] font-bold uppercase mt-2">No table selected</p>
-                      </div>
-                    ) : tableOrders.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-                        <CheckCircle size={32} /><p className="text-[10px] font-bold uppercase mt-2">All clear!</p>
-                      </div>
-                    ) : (
-                      tableOrders.map(order => (
-                        <div key={order.id} className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-black text-white/40 uppercase">#{order.id}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border uppercase ${statusStyle[order.status] || 'bg-white/10 text-white/40 border-white/20'}`}>
-                              {order.status}
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            {(order.items || []).map((it: any) => (
-                              <div key={it.item_id} className="flex justify-between items-center">
-                                <span className="text-[10px] font-bold text-white/70 truncate flex-1">{it.item_name}</span>
-                                <span className="text-[9px] font-black text-white/40 ml-2">×{it.quantity}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex justify-between items-center pt-1 border-t border-white/10">
-                            <span className="text-[9px] text-white/30 font-bold uppercase">Total</span>
-                            <span className="text-[11px] font-black text-orange-400">₹{order.total_price?.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {tableOrders.length > 0 && (
-                    <div className="p-4 border-t border-white/10 bg-white/[0.02]">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black uppercase text-white/50">Running Total</span>
-                        <span className="text-lg font-black text-orange-400">
-                          ₹{tableOrders.reduce((s, o) => s + (o.total_price || 0), 0).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
           </div>
         </div>
       </main>

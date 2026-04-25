@@ -1,11 +1,11 @@
 # Graph Report - C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main  (2026-04-26)
 
 ## Corpus Check
-- 14 files · ~64,093 words
+- 14 files · ~71,217 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 77 nodes · 103 edges · 13 communities detected
+- 77 nodes · 104 edges · 13 communities detected
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 5 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -41,18 +41,18 @@
   C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\App.tsx → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\context\AuthContext.tsx
 - `RoleBasedHome()` --calls--> `useAuth()`  [INFERRED]
   C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\App.tsx → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\context\AuthContext.tsx
-- `useSocket()` --calls--> `useAuth()`  [INFERRED]
-  C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\hooks\useSocket.ts → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\context\AuthContext.tsx
-- `StockManagerDashboard()` --calls--> `useAuth()`  [INFERRED]
-  C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\pages\StockManagerDashboard.tsx → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\context\AuthContext.tsx
-- `StockManagerDashboard()` --calls--> `useSocket()`  [INFERRED]
-  C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\pages\StockManagerDashboard.tsx → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\hooks\useSocket.ts
+- `useAuth()` --calls--> `useSocket()`  [INFERRED]
+  C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\context\AuthContext.tsx → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\hooks\useSocket.ts
+- `useAuth()` --calls--> `StockManagerDashboard()`  [INFERRED]
+  C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\context\AuthContext.tsx → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\pages\StockManagerDashboard.tsx
+- `useSocket()` --calls--> `StockManagerDashboard()`  [INFERRED]
+  C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\hooks\useSocket.ts → C:\Users\SAFWAN\Desktop\restaurant-order-management-system-main\restaurant-order-management-system-main\src\pages\StockManagerDashboard.tsx
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.28
-Nodes (12): fetchOrders(), fetchTables(), handleAddTable(), handleApplyDiscount(), handleDeleteTable(), handleGlobalKeys(), handleMergeTable(), handlePlacePosOrder() (+4 more)
+Cohesion: 0.29
+Nodes (13): addToPosCart(), fetchOrders(), fetchTables(), handleAddTable(), handleApplyDiscount(), handleDeleteTable(), handleGlobalKeys(), handleMergeTable() (+5 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.16
