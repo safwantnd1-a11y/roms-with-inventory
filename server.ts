@@ -157,11 +157,8 @@ db.exec(`
   VALUES (1, 'ROMS Restaurant', '123 Main St, City', '27AAACG0000A1Z5', '12345678901234', 2.5, 2.5, 0, '9876543210');
 `);
 
-// Add customer_id & payment_method to orders if not present
-const ordersColumns = db.prepare('PRAGMA table_info(orders)').all().map((col: any) => col.name);
-if (!ordersColumns.includes('customer_id')) db.prepare('ALTER TABLE orders ADD COLUMN customer_id INTEGER DEFAULT NULL').run();
-if (!ordersColumns.includes('payment_method')) db.prepare("ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'").run();
-if (!ordersColumns.includes('discount')) db.prepare("ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0").run();
+// NOTE: ordersColumns migration runs AFTER the FK guard below to ensure columns
+// are added to the final rebuilt table, not the stale one.
 
 // Add merged_into to tables if not present (for visual merge tracking)
 const tablesColumns = db.prepare('PRAGMA table_info(tables)').all().map((col: any) => col.name);
@@ -175,14 +172,25 @@ if (!stColumns.includes('item_type')) {
 
 // ── Migration: remove restrictive CHECK constraint on users.role ──────────
 {
+  // Guard: clean up a leftover users_old from a previously failed migration
+  const usersOldExists = (db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='users_old'"
+  ).get() as any);
+  if (usersOldExists) {
+    console.log('[MIGRATION] Detected leftover users_old table — cleaning up...');
+    db.pragma('foreign_keys = OFF');
+    db.exec('DROP TABLE IF EXISTS users_old;');
+    db.pragma('foreign_keys = ON');
+  }
+
   const usersDDL: string = (db.prepare(
     "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
   ).get() as any)?.sql ?? '';
 
   if (usersDDL.includes("CHECK(role IN")) {
+    db.pragma('foreign_keys = OFF');
+    db.exec('ALTER TABLE users RENAME TO users_old;');
     db.exec(`
-      PRAGMA foreign_keys = OFF;
-      ALTER TABLE users RENAME TO users_old;
       CREATE TABLE users (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         name         TEXT NOT NULL,
@@ -194,13 +202,15 @@ if (!stColumns.includes('item_type')) {
         active       INTEGER DEFAULT 0,
         left_company INTEGER DEFAULT 0
       );
+    `);
+    db.exec(`
       INSERT INTO users (id, name, email, password, role, login_count, last_login, active, left_company)
-      SELECT id, name, email, password, role, 
+      SELECT id, name, email, password, role,
              COALESCE(login_count, 0), last_login, COALESCE(active, 0), COALESCE(left_company, 0)
       FROM users_old;
-      DROP TABLE users_old;
-      PRAGMA foreign_keys = ON;
     `);
+    db.exec('DROP TABLE users_old;');
+    db.pragma('foreign_keys = ON');
     console.log('[MIGRATION] users table rebuilt — role constraint removed.');
   }
 }
@@ -210,16 +220,25 @@ if (!stColumns.includes('item_type')) {
 // which blocks 'billing' and 'paid'. SQLite can't DROP a constraint, so we
 // recreate the table without it (preserving all existing data).
 {
+  // Guard: clean up a leftover orders_old from a previously failed migration
+  const ordersOldExists = (db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='orders_old'"
+  ).get() as any);
+  if (ordersOldExists) {
+    console.log('[MIGRATION] Detected leftover orders_old table — cleaning up...');
+    db.pragma('foreign_keys = OFF');
+    db.exec('DROP TABLE IF EXISTS orders_old;');
+    db.pragma('foreign_keys = ON');
+  }
+
   const ordersDDL: string = (db.prepare(
     "SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'"
   ).get() as any)?.sql ?? '';
 
   if (ordersDDL.includes("CHECK(status IN")) {
+    db.pragma('foreign_keys = OFF');
+    db.exec('ALTER TABLE orders RENAME TO orders_old;');
     db.exec(`
-      PRAGMA foreign_keys = OFF;
-
-      ALTER TABLE orders RENAME TO orders_old;
-
       CREATE TABLE orders (
         id          INTEGER  PRIMARY KEY AUTOINCREMENT,
         table_id    INTEGER  NOT NULL,
@@ -230,15 +249,111 @@ if (!stColumns.includes('item_type')) {
         FOREIGN KEY (table_id)  REFERENCES tables(id),
         FOREIGN KEY (waiter_id) REFERENCES users(id)
       );
-
-      INSERT INTO orders SELECT id, table_id, waiter_id, status, total_price, created_at FROM orders_old;
-
-      DROP TABLE orders_old;
-
-      PRAGMA foreign_keys = ON;
     `);
+    db.exec('INSERT INTO orders SELECT id, table_id, waiter_id, status, total_price, created_at FROM orders_old;');
+    db.exec('DROP TABLE orders_old;');
+    db.pragma('foreign_keys = ON');
     console.log('[MIGRATION] orders table rebuilt — CHECK constraint removed.');
   }
+}
+
+// ── Permanent guard: fix orders FK / partial migration states ──────────────
+{
+  db.pragma('foreign_keys = OFF');
+
+  const hasOrders    = !!(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'").get());
+  const hasBroken    = !!(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orders_fk_broken'").get());
+  const ordersDDL: string = hasOrders
+    ? ((db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'").get() as any)?.sql ?? '')
+    : '';
+
+  if (hasBroken && !hasOrders) {
+    // Previous run renamed orders → orders_fk_broken but crashed before creating the new orders table
+    console.log('[STARTUP FIX] orders_fk_broken found without orders — restoring...');
+    db.exec(`
+      CREATE TABLE orders (
+        id              INTEGER  PRIMARY KEY AUTOINCREMENT,
+        table_id        INTEGER  NOT NULL,
+        waiter_id       INTEGER  NOT NULL,
+        status          TEXT     DEFAULT 'new',
+        total_price     REAL     NOT NULL,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        notes           TEXT     DEFAULT '',
+        bill_number     TEXT     DEFAULT NULL,
+        paid_at         DATETIME DEFAULT NULL,
+        customer_id     INTEGER  DEFAULT NULL,
+        payment_method  TEXT     DEFAULT 'cash',
+        discount        REAL     DEFAULT 0,
+        FOREIGN KEY (table_id)  REFERENCES tables(id),
+        FOREIGN KEY (waiter_id) REFERENCES users(id)
+      );
+    `);
+    db.exec(`
+      INSERT INTO orders
+        (id, table_id, waiter_id, status, total_price, created_at, notes, bill_number, paid_at, customer_id, payment_method, discount)
+      SELECT id, table_id, waiter_id, status, total_price, created_at,
+             COALESCE(notes,''), bill_number, paid_at, customer_id,
+             COALESCE(payment_method,'cash'), COALESCE(discount,0)
+      FROM orders_fk_broken;
+    `);
+    db.exec('DROP TABLE orders_fk_broken;');
+    console.log('[STARTUP FIX] orders restored from orders_fk_broken.');
+  } else if (hasBroken && hasOrders) {
+    // Both exist — orders was already rebuilt, just drop the stale backup
+    console.log('[STARTUP FIX] Stale orders_fk_broken found — dropping...');
+    db.exec('DROP TABLE orders_fk_broken;');
+    console.log('[STARTUP FIX] orders_fk_broken dropped.');
+  } else if (hasOrders && ordersDDL.includes('users_old')) {
+    // orders exists but its FK still points to users_old
+    console.log('[STARTUP FIX] orders FK points to users_old — rebuilding...');
+    db.exec('ALTER TABLE orders RENAME TO orders_fk_broken;');
+    db.exec(`
+      CREATE TABLE orders (
+        id              INTEGER  PRIMARY KEY AUTOINCREMENT,
+        table_id        INTEGER  NOT NULL,
+        waiter_id       INTEGER  NOT NULL,
+        status          TEXT     DEFAULT 'new',
+        total_price     REAL     NOT NULL,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        notes           TEXT     DEFAULT '',
+        bill_number     TEXT     DEFAULT NULL,
+        paid_at         DATETIME DEFAULT NULL,
+        customer_id     INTEGER  DEFAULT NULL,
+        payment_method  TEXT     DEFAULT 'cash',
+        discount        REAL     DEFAULT 0,
+        FOREIGN KEY (table_id)  REFERENCES tables(id),
+        FOREIGN KEY (waiter_id) REFERENCES users(id)
+      );
+    `);
+    db.exec(`
+      INSERT INTO orders
+        (id, table_id, waiter_id, status, total_price, created_at, notes, bill_number, paid_at, customer_id, payment_method, discount)
+      SELECT id, table_id, waiter_id, status, total_price, created_at,
+             COALESCE(notes,''), bill_number, paid_at, customer_id,
+             COALESCE(payment_method,'cash'), COALESCE(discount,0)
+      FROM orders_fk_broken;
+    `);
+    db.exec('DROP TABLE orders_fk_broken;');
+    console.log('[STARTUP FIX] orders rebuilt with correct FK to users.');
+  }
+
+  db.pragma('foreign_keys = ON');
+}
+
+// ── Column migrations — run AFTER guard so rebuilt tables get all columns ──
+{
+  const ordersColumns = db.prepare('PRAGMA table_info(orders)').all().map((col: any) => col.name);
+  if (!ordersColumns.includes('customer_id'))    db.prepare('ALTER TABLE orders ADD COLUMN customer_id INTEGER DEFAULT NULL').run();
+  if (!ordersColumns.includes('payment_method')) db.prepare("ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'").run();
+  if (!ordersColumns.includes('discount'))       db.prepare('ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0').run();
+  if (!ordersColumns.includes('notes'))          db.prepare("ALTER TABLE orders ADD COLUMN notes TEXT DEFAULT ''").run();
+  if (!ordersColumns.includes('bill_number'))    db.prepare('ALTER TABLE orders ADD COLUMN bill_number TEXT DEFAULT NULL').run();
+  if (!ordersColumns.includes('paid_at'))        db.prepare('ALTER TABLE orders ADD COLUMN paid_at DATETIME DEFAULT NULL').run();
+  if (!ordersColumns.includes('cgst'))           db.prepare('ALTER TABLE orders ADD COLUMN cgst REAL DEFAULT 0').run();
+  if (!ordersColumns.includes('sgst'))           db.prepare('ALTER TABLE orders ADD COLUMN sgst REAL DEFAULT 0').run();
+  if (!ordersColumns.includes('service_charge')) db.prepare('ALTER TABLE orders ADD COLUMN service_charge REAL DEFAULT 0').run();
+  if (!ordersColumns.includes('round_off'))      db.prepare('ALTER TABLE orders ADD COLUMN round_off REAL DEFAULT 0').run();
+  if (!ordersColumns.includes('grand_total'))    db.prepare('ALTER TABLE orders ADD COLUMN grand_total REAL DEFAULT 0').run();
 }
 
 // Fix: ensure items with stock > 0 are not marked out_of_stock (fixes bad initial seed data)
